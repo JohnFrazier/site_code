@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %} - History {{ page_name }}{% endblock %}
+{% block content %}
+<h1> History for {{ page_name }} </h1>
+{% for h in revision_hist %}
+<br>{{ h.page_name }} - {{ h.ctime }} - {{ h.author }}
+<br>{{ h.content }}
+<br>
+{% endfor %}
+{% endblock %}

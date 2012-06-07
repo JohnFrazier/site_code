@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %} - {{ page_name }}{% endblock %}
+{% block content %}
+<pre>
+   {{page_res.content}}
+</pre>
+<br>
+Queried {{ rtime }} seconds ago.
+<br>
+{% endblock %}

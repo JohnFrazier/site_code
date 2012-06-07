@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    {% block head %}
+    <title>Jvariants Wiki {% block title %}{% endblock %}</title>
+    {% endblock %}
+  </head>
+  <body>
+    {% block nav %}
+      <nav>
+        <a href="/"> Home </a>
+        {%  for n in nav.keys() %}
+        <a href={{ nav[n][1] }}>{{ nav[n][0] }}</a>
+        {% endfor %} 
+      </nav>
+
+    {% endblock %}
+
+    {% block content %}
+      <h1> default content </h1>
+    {% endblock %}
+
+  </body>
+</html>
