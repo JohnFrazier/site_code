@@ -7,6 +7,7 @@ import sqlite3
 from flask import Flask, request, session, g, redirect, url_for, \
              abort, render_template, flash
 
+import passw, time
 # configuration
 DATABASE = '/tmp/wiki.db'
 DEBUG = True
@@ -40,11 +41,11 @@ class Index(MethodView):
     def get(self):
         if 'username' in session:
             return render_template("welcome.html", welcome_msg="welcome %s" %
-                               escape(session['username']))
+                               session['username'])
         else:
+            flash(session.keys())
             return render_template("welcome.html", 
                                welcome_msg="You are not welcome stranger")
-
 
 class Login(MethodView):
     def get(self, username=None):
@@ -68,10 +69,66 @@ class Login(MethodView):
             flash("Invalid User and/or Password")
             return self.get(username = name)
 
+class Signup(MethodView):
+    def get(self, username=None):
+        if username:
+            return render_template("signup.html", username=username)
+        else:
+            return render_template("signup.html")
+    def post(self):
+        requests={"username": {"pat": re.compile("^[a-zA-Z0-9_-]{3,20}$"), 
+                               "err": "That's not a valid username."},
+                  "email": {"pat": re.compile("^[\S]+@[\S]+\.[\S]+$"), 
+                            "err": "That's not a valid email."},
+                  "password": {"pat": re.compile("^.{3,20}$"), 
+                               "err": "Invalid Password"},
+                  "verify": {"pat": re.compile(".*") , "err": "Your passwords didn't match."}}
+        p={"username": "", "email": ""}
+        responses=dict((key, request.form[key]) for key in requests)
+        errors=False
+        
+        for k,v in requests.iteritems():
+            if not responses[k] or not v['pat'].match(responses[k]):
+                if k == 'email' and responses[k] == "":
+                    pass
+                else:
+                    flash(v["err"])
+                    errors=True
+                    break
+       
+        if not errors and  responses['password'] and responses['verify']:
+            if responses['password'] != responses['verify']:
+                errors=True
+                flash(requests['verify']["err"])
+        
+        pw=responses['password']
+        name=responses['username']
+
+        if g.db.execute("select * from User WHERE username=?",
+                           (name,)).fetchone():
+            errors = True
+            flash( "Username is taken")
+        
+        if errors:
+            p["username"] = name
+            p["email"] = responses['email']
+            return template_render("signup.html", (p,))
+        
+        else:
+            session['username'] = name
+            #cname=cookies.make_secure_val(name)
+            #self.response.headers.add_header('Set-Cookie', 'name=%s; Path=/' %
+            #                                 cname )
+            g.db.execute(
+                "insert into user (username, ctime, password) values (?, ?, ?)",
+                         [name, time.time(), passw.make_pw_hash(name, pw)])
+            g.db.commit()
+            return redirect(url_for('index'))
 
 if __name__ == '__main__':
     init_db()
     app.add_url_rule('/login', view_func=Login.as_view('login'))
+    app.add_url_rule('/signup', view_func=Signup.as_view('signup'))
     app.add_url_rule('/', view_func=Index.as_view('index'))
     app.run()
 
