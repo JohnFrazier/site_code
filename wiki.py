@@ -41,18 +41,18 @@ class Index(MethodView):
     def get(self):
         if 'username' in session:
             return render_template("welcome.html", welcome_msg="welcome %s" %
-                               session['username'])
+                               session['username'][1], nav=get_nav())
         else:
-            flash(session.keys())
-            return render_template("welcome.html", 
+            return render_template("welcome.html", nav=get_nav(), 
                                welcome_msg="You are not welcome stranger")
 
 class Login(MethodView):
     def get(self, username=None):
         if username:
-            return render_template("login.html", username=username)
+            return render_template("login.html", username=username,
+                                   nav=get_nav())
         else:
-            return render_template("login.html")
+            return render_template("login.html", nav=get_nav())
 
     def post(self):
         name = request.form['username']
@@ -64,7 +64,7 @@ class Login(MethodView):
             app.logger.debug("foo")
         if user:
             session['username'] = user
-            return redirect("/welcome")
+            return redirect(url_for('index'))
         else:
             flash("Invalid User and/or Password")
             return self.get(username = name)
@@ -72,9 +72,10 @@ class Login(MethodView):
 class Signup(MethodView):
     def get(self, username=None):
         if username:
-            return render_template("signup.html", username=username)
+            return render_template("signup.html", username=username,
+                                   nav=get_nav())
         else:
-            return render_template("signup.html")
+            return render_template("signup.html", nav=get_nav())
     def post(self):
         requests={"username": {"pat": re.compile("^[a-zA-Z0-9_-]{3,20}$"), 
                                "err": "That's not a valid username."},
@@ -112,7 +113,7 @@ class Signup(MethodView):
         if errors:
             p["username"] = name
             p["email"] = responses['email']
-            return template_render("signup.html", (p,))
+            return render_template("signup.html", username=name)
         
         else:
             session['username'] = name
@@ -125,8 +126,37 @@ class Signup(MethodView):
             g.db.commit()
             return redirect(url_for('index'))
 
+class Logout(MethodView):
+    def get(self):
+        session.pop('username', None)
+
+        #self.response.headers.add_header('Set-Cookie', 'name=; Path=/')
+        return redirect(url_for('index'))
+
+def get_nav(path=None):
+        result={}
+        # check user logins add user info to the result
+        if path:
+            result['edit']=("edit page", "/_edit/" + path)
+            result["history"]=("page history", "/_history/" + path)
+            result["latest"]=("latest version", path)
+            #result["page_name"] = path 
+        else:
+            pass
+            #page=self.request.path 
+            #result['page_name']= page
+        if 'username' in session:
+            result["user"]=(session['username'][1], '/')
+            result["logout"]=("logout", url_for('logout'))
+        else:
+            result["user"]=("Not logged in", url_for("login"))
+            result["login"]=( "login", url_for("login"))
+            result['signup']=("sign up", url_for("signup"))
+
+        # create a nav dict
+        return result
 if __name__ == '__main__':
-    init_db()
+    app.add_url_rule('/logout', view_func=Logout.as_view('logout'))
     app.add_url_rule('/login', view_func=Login.as_view('login'))
     app.add_url_rule('/signup', view_func=Signup.as_view('signup'))
     app.add_url_rule('/', view_func=Index.as_view('index'))
