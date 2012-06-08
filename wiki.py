@@ -34,20 +34,26 @@ def before_request():
 def teardown_request(exception):
     g.db.close()
 
-@app.route('/')
-def index():
-    if 'username' in session:
-        return render_template("welcome.html", welcome_msg="welcome %s" %
+from flask.views import MethodView
+
+class Index(MethodView):
+    def get(self):
+        if 'username' in session:
+            return render_template("welcome.html", welcome_msg="welcome %s" %
                                escape(session['username']))
-    else:
-        return render_template("welcome.html", 
+        else:
+            return render_template("welcome.html", 
                                welcome_msg="You are not welcome stranger")
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    username=""
-    if request.method=='POST':
-        errors = False
+
+class Login(MethodView):
+    def get(self, username=None):
+        if username:
+            return render_template("login.html", username=username)
+        else:
+            return render_template("login.html")
+
+    def post(self):
         name = request.form['username']
         pw = request.form['password']
         user=None
@@ -55,19 +61,18 @@ def login():
             user = g.db.execute("SELECT * from User WHERE username=?",
                                 (name,)).fetchone()
             app.logger.debug("foo")
-        if not user:
-            errors = True
-            flash("Invalid User and/or Password")
-        if not errors:
+        if user:
             session['username'] = user
             return redirect("/welcome")
-    return render_template("login.html", uesrname=username)
-
-
+        else:
+            flash("Invalid User and/or Password")
+            return self.get(username = name)
 
 
 if __name__ == '__main__':
     init_db()
+    app.add_url_rule('/login', view_func=Login.as_view('login'))
+    app.add_url_rule('/', view_func=Index.as_view('index'))
     app.run()
 
 
