@@ -6,14 +6,23 @@
     {% endblock %}
   </head>
   <body>
+    {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      {% for msg in messages %}
+      <li>{{ msg }}</li>
+      {% endfor %}
+    {% endif %}
+    {% endwith %}
     {% block nav %}
       <nav>
         <a href="/"> Home </a>
-        {%  for n in nav.keys() %}
-        <a href={{ nav[n][1] }}>{{ nav[n][0] }}</a>
-        {% endfor %} 
+        {% if nav %}
+          {%  for n in nav.keys() %}
+            <a href={{ nav[n][1] }}>{{ nav[n][0] }}</a>
+          {% endfor %} 
+        {% endif %}
       </nav>
-
+    
     {% endblock %}
 
     {% block content %}
