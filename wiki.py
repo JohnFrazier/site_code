@@ -1,9 +1,12 @@
 #!/usr/bin/env python2
+# -*- coding: utf-8 -*-
 from __future__ import with_statement
 from contextlib import closing
 import re
 import sqlite3
+import codecs
 
+from docutils.core import publish_parts
 from flask import Flask, request, session, g, redirect, url_for, \
              abort, render_template, flash
 
@@ -12,8 +15,6 @@ import passw, time
 DATABASE = '/tmp/wiki.db'
 DEBUG = True
 SECRET_KEY = 'K\xa3z\xc3\x92\x03-\xecns\xb9q\xd1\x99\xb4\xb0\x8c,\xd7\x8b\x82\xff\xe3\xfb'
-USERNAME = 'admin'
-PASSWORD = 'default'
 
 app = Flask(__name__)
 app.config.from_object(__name__)
@@ -61,7 +62,6 @@ class Login(MethodView):
         if re.compile("^[a-zA-Z0-9_-]{3,20}$").match(name):
             user = g.db.execute("SELECT * from User WHERE username=?",
                                 (name,)).fetchone()
-            app.logger.debug("foo")
         if user:
             session['username'] = user
             return redirect(url_for('index'))
@@ -129,10 +129,29 @@ class Signup(MethodView):
 class Logout(MethodView):
     def get(self):
         session.pop('username', None)
-
+        flash("Sucessfully logged out")
         #self.response.headers.add_header('Set-Cookie', 'name=; Path=/')
         return redirect(url_for('index'))
 
+class Page(MethodView):
+    def get(self, page_name=None):
+        f=None
+        fname='pages/' + page_name + ".txt"
+        content = u"Hi ☣"
+        
+        # so publish will output a unicode string
+        overrides= {'input_encoding': 'unicode', 'output_encoding': 'unicode'}
+        
+        try:
+            with codecs.open(fname, encoding='utf-8') as f:
+                s=f.read()#.decode('utf-8')
+                # I need publish to dump just the body not head and style
+                content=publish_parts(source=s, #.read().encode('utf-8'),
+                                       settings_overrides=overrides,
+                                       writer_name='html')['html_body']
+        except IOError: flash("file not found")
+        return render_template("page.html", nav=get_nav(),
+                               page_content=content, page_name=page_name)
 def get_nav(path=None):
         result={}
         # check user logins add user info to the result
@@ -146,7 +165,7 @@ def get_nav(path=None):
             #page=self.request.path 
             #result['page_name']= page
         if 'username' in session:
-            result["user"]=(session['username'][1], '/')
+            result["user"]=(session['username'][1], url_for('index'))
             result["logout"]=("logout", url_for('logout'))
         else:
             result["user"]=("Not logged in", url_for("login"))
@@ -155,11 +174,14 @@ def get_nav(path=None):
 
         # create a nav dict
         return result
+
+PAGE_RE = r'/([a-zA-Z0-9_-]+)/?'
 if __name__ == '__main__':
     app.add_url_rule('/logout', view_func=Logout.as_view('logout'))
     app.add_url_rule('/login', view_func=Login.as_view('login'))
     app.add_url_rule('/signup', view_func=Signup.as_view('signup'))
     app.add_url_rule('/', view_func=Index.as_view('index'))
+    app.add_url_rule('/<page_name>', view_func=Page.as_view('page'))
     app.run()
 
 

@@ -2,9 +2,9 @@
 {% block title %} - {{ page_name }}{% endblock %}
 {% block content %}
 <pre>
-   {{page_res.content}}
+   {{ page_content | safe }}
 </pre>
 <br>
-Queried {{ rtime }} seconds ago.
+Queried {{ rtime  }} seconds ago.
 <br>
 {% endblock %}
