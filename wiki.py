@@ -5,10 +5,13 @@ from contextlib import closing
 import re
 import sqlite3
 import codecs
+import json
 
-from docutils.core import publish_parts
-from flask import Flask, request, session, g, redirect, url_for, \
+from docutils.core import publish_parts, publish_string
+
+from flask import Flask, Response, request, session, g, redirect, url_for, \
              abort, render_template, flash
+from flask.views import MethodView
 
 import passw, time
 # configuration
@@ -36,10 +39,18 @@ def before_request():
 def teardown_request(exception):
     g.db.close()
 
-from flask.views import MethodView
+def get_response_type(accept_string):
+    if 'application/json' in accept_string:
+        return 'json'
+    elif 'text/text' in accept_string:
+        return 'text'
+    else:
+        return 'html'
 
 class Index(MethodView):
     def get(self):
+        for a in request.headers:
+            flash(a)
         if 'username' in session:
             return render_template("welcome.html", welcome_msg="welcome %s" %
                                session['username'][1], nav=get_nav())
@@ -135,23 +146,37 @@ class Logout(MethodView):
 
 class Page(MethodView):
     def get(self, page_name=None):
+        for a in request.accept_mimetypes:
+            flash(a)
+        response_type=get_response_type(request.accept_mimetypes)
         f=None
         fname='pages/' + page_name + ".txt"
         content = u"Hi ☣"
-        
         # so publish will output a unicode string
         overrides= {'input_encoding': 'unicode', 'output_encoding': 'unicode'}
-        
         try:
             with codecs.open(fname, encoding='utf-8') as f:
                 s=f.read()#.decode('utf-8')
-                # I need publish to dump just the body not head and style
-                content=publish_parts(source=s, #.read().encode('utf-8'),
-                                       settings_overrides=overrides,
-                                       writer_name='html')['html_body']
+                if response_type == 'html':
+                    # I need publish to dump just the body not head and style
+                    content=publish_parts(source=s, #.read().encode('utf-8'),
+                                           settings_overrides=overrides,
+                                           writer_name='html')['html_body']
+                    return render_template("page.html", nav=get_nav(),
+                                   page_content=content, page_name=page_name)
+
+                elif response_type == 'json':
+                    d={'*': s, 'query': page_name}
+                    content = json.dumps(d)
+                    #content=publish_string(source=s,
+                    #settings_overrides=overrides,
+                    #writer_name='json')
+                    mime='Application/json'
+                    return Response(content, mimetype=mime)
+                elif response_type == 'text':
+                    return Response(s, mimetype='text/text')
+                else: return "failed"
         except IOError: flash("file not found")
-        return render_template("page.html", nav=get_nav(),
-                               page_content=content, page_name=page_name)
 def get_nav(path=None):
         result={}
         # check user logins add user info to the result
