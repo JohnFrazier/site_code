@@ -40,17 +40,16 @@ def teardown_request(exception):
     g.db.close()
 
 def get_response_type(accept_string):
-    if 'application/json' in accept_string:
-        return 'json'
-    elif 'text/text' in accept_string:
-        return 'text'
-    else:
+    for s, v in accept_string:
+        if s == 'application/json' and v > .9:
+            return 'json'
+        if s == 'text/text' and v > .9:
+            return 'text'
         return 'html'
+
 
 class Index(MethodView):
     def get(self):
-        for a in request.headers:
-            flash(a)
         if 'username' in session:
             return render_template("welcome.html", welcome_msg="welcome %s" %
                                session['username'][1], nav=get_nav())
@@ -149,16 +148,17 @@ class Page(MethodView):
         for a in request.accept_mimetypes:
             flash(a)
         response_type=get_response_type(request.accept_mimetypes)
+        app.logger.debug(response_type)
         f=None
         fname='pages/' + page_name + ".txt"
         content = u"Hi ☣"
-        # so publish will output a unicode string
+        # so docutils will output a unicode string
         overrides= {'input_encoding': 'unicode', 'output_encoding': 'unicode'}
         try:
             with codecs.open(fname, encoding='utf-8') as f:
                 s=f.read()#.decode('utf-8')
                 if response_type == 'html':
-                    # I need publish to dump just the body not head and style
+                    # I need docutils to dump just the body not head and style
                     content=publish_parts(source=s, #.read().encode('utf-8'),
                                            settings_overrides=overrides,
                                            writer_name='html')['html_body']
@@ -168,37 +168,36 @@ class Page(MethodView):
                 elif response_type == 'json':
                     d={'*': s, 'query': page_name}
                     content = json.dumps(d)
-                    #content=publish_string(source=s,
-                    #settings_overrides=overrides,
-                    #writer_name='json')
                     mime='Application/json'
                     return Response(content, mimetype=mime)
                 elif response_type == 'text':
                     return Response(s, mimetype='text/text')
                 else: return "failed"
         except IOError: flash("file not found")
-def get_nav(path=None):
-        result={}
-        # check user logins add user info to the result
-        if path:
-            result['edit']=("edit page", "/_edit/" + path)
-            result["history"]=("page history", "/_history/" + path)
-            result["latest"]=("latest version", path)
-            #result["page_name"] = path 
-        else:
-            pass
-            #page=self.request.path 
-            #result['page_name']= page
-        if 'username' in session:
-            result["user"]=(session['username'][1], url_for('index'))
-            result["logout"]=("logout", url_for('logout'))
-        else:
-            result["user"]=("Not logged in", url_for("login"))
-            result["login"]=( "login", url_for("login"))
-            result['signup']=("sign up", url_for("signup"))
 
-        # create a nav dict
-        return result
+def get_nav(path=None):
+    result={}
+    result['main'] = ("home", url_for('index'))
+    # check user logins add user info to the result
+    if path:
+        result['edit']=("edit page", "/_edit/" + path)
+        result["history"]=("page history", "/_history/" + path)
+        result["latest"]=("latest version", path)
+        #result["page_name"] = path 
+    else:
+        pass
+        #page=self.request.path 
+        #result['page_name']= page
+    if 'username' in session:
+        result["user"]=(session['username'][1], url_for('index'))
+        result["logout"]=("logout", url_for('logout'))
+    else:
+        result["user"]=("Not logged in", url_for("login"))
+        result["login"]=( "login", url_for("login"))
+        result['signup']=("sign up", url_for("signup"))
+
+    # create a nav dict
+    return result
 
 PAGE_RE = r'/([a-zA-Z0-9_-]+)/?'
 if __name__ == '__main__':
