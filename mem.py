@@ -17,7 +17,7 @@ class Memo():
     def __init__(self):
         self.cache=memcache.Client(['127.0.0.1:11211'], debug=0)
     def get(self, key):
-        MEMO.app.logger.debug("key: " +  str(key))
+        #MEMO.app.logger.debug("key: " +  str(key))
         k=self.get_key(key)
         try:
             return self.cache.get(k)
@@ -56,31 +56,18 @@ class Memo():
         self.cache.flush_all()
 MEMO= Memo()
 MEMO.flush()
-#@decorator
+
 def page_memo(f):
     def _f(*args, **kwargs):
-        MEMO.app.logger.debug(args)
-        #MEMO.app.logger.debug(kwargs)
         res=MEMO.get(args)
-        #logging.error(args)
-        #logging.error(MEMO.cache.keys())
-        #logging.error(MEMO.cache.values())
         if res:
-            #logging.error("cache hit")
-            #MEMO.app.logger.debug(type(res))
-            #res, qtime = res
-            #res[1]['rtime']=time
-            #logging.error(res)
-            #MEMO.app.logger.debug(res)
+            #MEMO.app.logger.debug("cache hit")
             return res
         else:
-            #logging.error("cache miss")
+            #MEMO.app.logger.debug("cache miss")
             res = f(*args) # page_name=page_name)
             MEMO.set(args, (res, time.time()))
-            res, qtime = MEMO.get(args)
             if res:
-                #res, time = res
-                #res[1]["rtime"]=time
-                return res, qtime
-            return False
+                return res, time.time()
+            return False, 0
     return _f
