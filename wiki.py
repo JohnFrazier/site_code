@@ -19,7 +19,6 @@ DATABASE = '/tmp/wiki.db'
 DEBUG = True
 import secret
 SECRET_KEY = secret.KEY
-#SECRET_KEY = 'K\xa3z\xc3\x92\x03-\xecns\xb9q\xd1\x99\xb4\xb0\x8c,\xd7\x8b\x82\xff\xe3\xfb'
 
 app = Flask(__name__)
 app.config.from_object(__name__)
@@ -48,7 +47,6 @@ def get_response_type(accept_string):
         if s == 'text/text' and v > .9:
             return 'text'
         return 'html'
-
 
 class Index(MethodView):
     def get(self):
@@ -141,40 +139,44 @@ class Logout(MethodView):
         flash("Sucessfully logged out")
         #self.response.headers.add_header('Set-Cookie', 'name=; Path=/')
         return redirect(url_for('index'))
+import mem
+mem.MEMO.app = app
+
+@mem.page_memo
+def page_render_content(page_name, response_type):
+    #app.logger.debug(response_type)
+    f=None
+    fname='pages/' + page_name + ".txt"
+    content = u""
+    # so docutils will output a unicode string
+    overrides= {'input_encoding': 'unicode', 'output_encoding': 'unicode'}
+    try:
+        with codecs.open(fname, encoding='utf-8') as f:
+            s=f.read()#.decode('utf-8')
+            if response_type == 'html':
+                # I need docutils to dump just the body not head and style
+                return publish_parts(source=s, #.read().encode('utf-8'),
+                                       settings_overrides=overrides,
+                                       writer_name='html')['html_body']
+            elif response_type == 'json':
+                d={'*': s, 'query': page_name}
+                content = json.dumps(d)
+                mime='Application/json'
+                return Response(content, mimetype=mime)
+            elif response_type == 'text':
+                return Response(s, mimetype='text/text')
+            else: return "failed"
+    except IOError: flash("something went wrong, page not found")
 
 class Page(MethodView):
-    def get(self, page_name=None):
-        #for a in request.accept_mimetypes:
-            #    flash(a)
+    def get(self, page_name=""):
         response_type=get_response_type(request.accept_mimetypes)
-        #app.logger.debug(response_type)
-        f=None
-        fname='pages/' + page_name + ".txt"
-        content = u""
-        # so docutils will output a unicode string
-        overrides= {'input_encoding': 'unicode', 'output_encoding': 'unicode'}
-        try:
-            with codecs.open(fname, encoding='utf-8') as f:
-                s=f.read()#.decode('utf-8')
-                if response_type == 'html':
-                    # I need docutils to dump just the body not head and style
-                    content=publish_parts(source=s, #.read().encode('utf-8'),
-                                           settings_overrides=overrides,
-                                           writer_name='html')['html_body']
-                    return render_template("page.html", nav=get_nav(),
-                                   page_content=content, page_name=page_name)
-
-                elif response_type == 'json':
-                    d={'*': s, 'query': page_name}
-                    content = json.dumps(d)
-                    mime='Application/json'
-                    return Response(content, mimetype=mime)
-                elif response_type == 'text':
-                    return Response(s, mimetype='text/text')
-                else: return "failed"
-        except IOError: flash("something went wrong, page not found")
-        return render_template("page.html", nav=get_nav(), 
-                               page_content="page not found", page_name=page_name)
+        content, qtime= page_render_content(page_name, response_type)
+        rtime = int(time.time() - qtime) 
+        if response_type == "html":
+            return render_template("page.html", nav=get_nav(), rtime=rtime,
+                               page_content=content, page_name=page_name)
+        return content
 
 def get_nav(path=None):
     result={}
@@ -190,7 +192,7 @@ def get_nav(path=None):
         #page=self.request.path 
         #result['page_name']= page
     if 'username' in session:
-        result["user"]=(session['username'], url_for('index'))
+        result["user"]=(session['username'], "") #url_for('index'))
         result["logout"]=("logout", url_for('logout'))
     else:
         result["user"]=("Not logged in", url_for("login"))
