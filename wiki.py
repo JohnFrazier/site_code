@@ -118,19 +118,16 @@ class Signup(MethodView):
             flash( "Username is taken")
         
         if errors:
-            p["username"] = name
-            p["email"] = responses['email']
-            return render_template("signup.html", username=name)
+            return render_template("signup.html", username=name,
+                                  email=responses['email'])
         
         else:
             session['username'] = name
-            #cname=cookies.make_secure_val(name)
-            #self.response.headers.add_header('Set-Cookie', 'name=%s; Path=/' %
-            #                                 cname )
             salt = passw.make_salt()
             password = passw.make_pw_hash(name, pw, salt)
             g.db.execute(
-                "insert into user (username, salt, ctime, password) values (? ,?, ?, ?)",
+                "insert into user (username, salt, ctime, password, email)\
+                values (? ,?, ?, ?, ?)",
                          [name, salt, time.time(), password])
             flash("Welcome %s!" % name)
             g.db.commit()
@@ -147,9 +144,8 @@ mem.MEMO.app = app
 @mem.page_memo
 def page_render_content(page_name, response_type):
     #app.logger.debug(response_type)
-    f=None
     fname='pages/' + page_name + ".txt"
-    content = u""
+    
     # so docutils will output a unicode string
     overrides= {'input_encoding': 'unicode', 'output_encoding': 'unicode'}
     try:
@@ -162,13 +158,12 @@ def page_render_content(page_name, response_type):
                                        writer_name='html')['html_body']
             elif response_type == 'json':
                 d={'*': s, 'query': page_name}
-                content = json.dumps(d)
-                mime='Application/json'
-                return Response(content, mimetype=mime)
+                return Response(json.dumps(d), mimetype='Application/json')
+                
             elif response_type == 'text':
                 return Response(s, mimetype='text/text')
             else: return "failed"
-    except IOError: flash("something went wrong, page not found")
+    except IOError: pass
 
 class Page(MethodView):
     def get(self, page_name=""):
@@ -204,7 +199,7 @@ def get_nav(path=None):
     # create a nav dict
     return result
 
-PAGE_RE = r'/([a-zA-Z0-9_-]+)/?'
+#PAGE_RE = r'/([a-zA-Z0-9_-]+)/?'
 if __name__ == '__main__':
     app.add_url_rule('/logout', view_func=Logout.as_view('logout'))
     app.add_url_rule('/login', view_func=Login.as_view('login'))
