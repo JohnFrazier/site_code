@@ -1,0 +1,16 @@
+
+Compiling Regular Expressions
+-----------------------------
+
+Regular expressions are compiled into pattern objects, which have
+methods for various operations such as searching for pattern matches or
+performing string substitutions. ::
+
+   >>> import re
+   >>> p = re.compile('ab*')
+   >>> print p
+   <_sre.SRE_Pattern object at 0x...>
+
+:func:`re.compile` also accepts an optional *flags* argument, used to enable
+various special features and syntax variations.  We'll go over the available
+settings later, but for now a single example will do::

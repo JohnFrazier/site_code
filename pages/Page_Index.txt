@@ -1,0 +1,26 @@
+.. _pageindex:
+
+**************
+  Page Index
+**************
+
+Description
+-----------
+This is the wiki on jvariant.com
+
++------+-----------+---------------------------------+
+| Step | Matched   | Explanation                     |
++======+===========+=================================+
+| 1    | ``a``     | The ``a`` in the RE matches.    |
++------+-----------+---------------------------------+
+| 2    | ``abcbd`` | The engine matches ``[bcd]*``,  |
+|      |           | going as far as it can, which   |
+|      |           | is to the end of the string.    |
++------+-----------+---------------------------------+
+| 3    | *Failure* | The engine tries to match       |
+|      |           | ``b``, but the current position |
+|      |           | is at the end of the string, so |
+|      |           | it fails.                       |
++------+-----------+---------------------------------+
+
+#.. include :: pages/something.txt
