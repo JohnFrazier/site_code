@@ -6,14 +6,15 @@ import re
 import sqlite3
 import codecs
 import json
-
+import time
 from docutils.core import publish_parts, publish_string
 
 from flask import Flask, Response, request, session, g, redirect, url_for, \
              abort, render_template, flash
 from flask.views import MethodView
 
-import passw, time
+import passw
+import mem
 # configuration
 DATABASE = '/tmp/wiki.db'
 DEBUG = True
@@ -65,12 +66,12 @@ class Login(MethodView):
         pw = request.form['password']
         user=None
         if re.compile("^[a-zA-Z0-9_-]{3,20}$").match(name):
-            user = g.db.execute("SELECT * from User WHERE username=?",
+            user = g.db.execute("SELECT password,salt from User WHERE username=?",
                                 (name,)).fetchone()
         if user:
-            if passw.valid_pw(name, pw, user[3]):
+            if passw.valid_pw(name, pw, user[0], user[1]):
                 flash("Welcome back %s!" % name)
-                session['username'] = user[1]
+                session['username'] = name
                 return redirect(url_for('index'))
         flash("Invalid User and/or Password")
         return self.get(username = name)
@@ -126,9 +127,11 @@ class Signup(MethodView):
             #cname=cookies.make_secure_val(name)
             #self.response.headers.add_header('Set-Cookie', 'name=%s; Path=/' %
             #                                 cname )
+            salt = passw.make_salt()
+            password = passw.make_pw_hash(name, pw, salt)
             g.db.execute(
-                "insert into user (username, ctime, password) values (?, ?, ?)",
-                         [name, time.time(), passw.make_pw_hash(name, pw)])
+                "insert into user (username, salt, ctime, password) values (? ,?, ?, ?)",
+                         [name, salt, time.time(), password])
             flash("Welcome %s!" % name)
             g.db.commit()
             return redirect(url_for('index'))
@@ -139,7 +142,6 @@ class Logout(MethodView):
         flash("Sucessfully logged out")
         #self.response.headers.add_header('Set-Cookie', 'name=; Path=/')
         return redirect(url_for('index'))
-import mem
 mem.MEMO.app = app
 
 @mem.page_memo

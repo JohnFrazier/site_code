@@ -11,6 +11,7 @@ drop table if exists User;
 create table User (
   id integer primary key autoincrement,
   username string not null,
+  salt string not null,
   ctime timestamp not null,
   password string not null 
 );
