@@ -5,12 +5,12 @@ from contextlib import closing
 import re
 import sqlite3
 import codecs
-import json
+#:import json
 import time
 from docutils.core import publish_parts, publish_string
 
 from flask import Flask, Response, request, session, g, redirect, url_for, \
-             abort, render_template, flash
+             abort, render_template, flash, jsonify
 from flask.views import MethodView
 
 import passw
@@ -141,29 +141,37 @@ class Logout(MethodView):
         return redirect(url_for('index'))
 mem.MEMO.app = app
 
+def render_json(source, page_name):
+    overrides= {'input_encoding': 'unicode', 'output_encoding': 'unicode'}
+    q={'request': page_name, 'response' : publish_parts(source=source, 
+                           settings_overrides=overrides,
+                           writer_name='html')}
+    return jsonify(q)
+
+def render_html(source, page_name):
+    # so docutils will output a unicode string
+    overrides= {'input_encoding': 'unicode', 'output_encoding': 'unicode'}
+    return publish_parts(source=source, 
+                           settings_overrides=overrides,
+                           writer_name='html')['html_body']
+
+def render_text(source, page_name):
+    return Response(source, mimetype='text/text')
+
+page_renderers={'html': render_html,
+           'json': render_json,
+           'text': render_text}
 @mem.page_memo
 def page_render_content(page_name, response_type):
     #app.logger.debug(response_type)
     fname='pages/' + page_name + ".txt"
     
-    # so docutils will output a unicode string
-    overrides= {'input_encoding': 'unicode', 'output_encoding': 'unicode'}
     try:
         with codecs.open(fname, encoding='utf-8') as f:
             s=f.read()#.decode('utf-8')
-            if response_type == 'html':
-                # I need docutils to dump just the body not head and style
-                return publish_parts(source=s, #.read().encode('utf-8'),
-                                       settings_overrides=overrides,
-                                       writer_name='html')['html_body']
-            elif response_type == 'json':
-                d={'*': s, 'query': page_name}
-                return Response(json.dumps(d), mimetype='Application/json')
-                
-            elif response_type == 'text':
-                return Response(s, mimetype='text/text')
-            else: return "failed"
-    except IOError: pass
+    except IOError:
+        s=u"page does not exist"
+    return page_renderers[response_type](s, page_name)
 
 class Page(MethodView):
     def get(self, page_name=""):
@@ -171,7 +179,7 @@ class Page(MethodView):
         content, qtime= page_render_content(page_name, response_type)
         rtime = int(time.time() - qtime) 
         if response_type == "html":
-            return render_template("page.html", nav=get_nav(), rtime=rtime,
+            content = render_template("page.html", nav=get_nav(), rtime=rtime,
                                page_content=content, page_name=page_name)
         return content
 
